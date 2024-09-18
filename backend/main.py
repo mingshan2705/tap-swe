@@ -3,7 +3,16 @@ from sqlalchemy.orm import Session
 from . import models, schemas, crud
 from .database import engine, get_db
 from datetime import datetime
+import logging
 
+# Configure logging
+logging.basicConfig(filename="data_change_log.txt", level=logging.INFO, format="%(asctime)s - %(message)s")
+
+# Helper function to log changes
+def log_change(action, item_type, item_name, details):
+    log_message = f"{action} {item_type}: {item_name} - {details}"
+    logging.info(log_message)
+    
 # Initialize the database tables
 models.Base.metadata.create_all(bind=engine)
 
@@ -12,28 +21,31 @@ app = FastAPI()
 # Add a new team
 @app.post("/teams/", response_model=schemas.Team)
 def add_team(team: schemas.TeamCreate, db: Session = Depends(get_db)):
-    # Validate date format (assuming DD/MM format)
+    # Validate date format
     try:
         datetime.strptime(team.registration_date, "%d/%m")
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Expected DD/MM.")
     
-    # Validate group number (must be 1 or 2)
+    # Validate group number
     if team.group_number not in [1, 2]:
         raise HTTPException(status_code=400, detail="Group number must be 1 or 2.")
     
-    # Check if the group already has 6 teams
+    # Check group capacity
     group_count = db.query(models.Team).filter(models.Team.group_number == team.group_number).count()
     if group_count >= 6:
         raise HTTPException(status_code=400, detail=f"Group {team.group_number} already has 6 teams. No more teams can be added.")
-    
-    # Check if team already exists
+
     db_team = crud.get_team(db, team.name)
     if db_team:
         raise HTTPException(status_code=400, detail="Team already exists")
     
-    # Proceed with team creation
-    return crud.create_team(db, team)
+    created_team = crud.create_team(db, team)
+
+    # Log the change
+    log_change("Added", "Team", team.name, f"Group {team.group_number}, Registration Date {team.registration_date}")
+
+    return created_team
 
 
 
@@ -41,45 +53,37 @@ def add_team(team: schemas.TeamCreate, db: Session = Depends(get_db)):
 # Update a team's details
 @app.put("/teams/{team_name}", response_model=schemas.Team)
 def update_team(team_name: str, team: schemas.TeamCreate, db: Session = Depends(get_db)):
-    # Validate date format (assuming DD/MM format)
-    try:
-        datetime.strptime(team.registration_date, "%d/%m")
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date format. Expected DD/MM.")
-    
-    # Validate group number (must be 1 or 2)
-    if team.group_number not in [1, 2]:
-        raise HTTPException(status_code=400, detail="Group number must be 1 or 2.")
-    
-    # Fetch the existing team
     db_team = crud.get_team(db, team_name)
     if db_team is None:
         raise HTTPException(status_code=404, detail="Team not found")
     
-    # If the team is changing groups, check if the target group has space (up to 6 teams)
-    if db_team.group_number != team.group_number:
-        group_count = db.query(models.Team).filter(models.Team.group_number == team.group_number).count()
-        if group_count >= 6:
-            raise HTTPException(status_code=400, detail=f"Group {team.group_number} already has 6 teams. Cannot move team to this group.")
+    old_group = db_team.group_number
+    old_name = db_team.name
     
-    # Proceed with updating the team's details
     db_team.name = team.name
     db_team.registration_date = team.registration_date
     db_team.group_number = team.group_number
     db.commit()
     db.refresh(db_team)
 
+    # Log the change
+    log_change("Updated", "Team", old_name, f"New Name: {team.name}, New Group: {team.group_number}, Old Group: {old_group}")
+
     return db_team
 
 # Delete a team
-@app.delete("/teams/{team_name}")
-def delete_team(team_name: str, db: Session = Depends(get_db)):
-    db_team = crud.get_team(db, team_name)
-    if db_team is None:
-        raise HTTPException(status_code=404, detail="Team not found")
-    db.delete(db_team)
-    db.commit()
-    return {"message": f"Team {team_name} deleted successfully"}
+# def delete_team(team_name: str, db: Session = Depends(get_db)):
+#     db_team = crud.get_team(db, team_name)
+#     if db_team is None:
+#         raise HTTPException(status_code=404, detail="Team not found")
+    
+#     db.delete(db_team)
+#     db.commit()
+
+#     # Log the deletion
+#     log_change("Deleted", "Team", team_name, f"Group {db_team.group_number}")
+
+#     return {"message": f"Team {team_name} deleted successfully"}
 
 # Add a new match
 @app.post("/matches/", response_model=schemas.Match)
@@ -111,10 +115,13 @@ def add_match(match: schemas.MatchCreate, db: Session = Depends(get_db)):
     if existing_match:
         raise HTTPException(status_code=400, detail=f"A match between {match.team_a} and {match.team_b} already exists.")
     
-    # Proceed with match creation if all validations pass
-    return crud.create_match(db, match)
+    # Create the match
+    created_match = crud.create_match(db, match)
 
+    # Log the addition of the match
+    log_change("Added", "Match", f"{match.team_a} vs {match.team_b}", f"Score: {match.goals_a}-{match.goals_b}")
 
+    return created_match
 
 
 # Update a match's details
@@ -123,17 +130,9 @@ def update_match(match_id: int, match: schemas.MatchCreate, db: Session = Depend
     db_match = db.query(models.Match).filter(models.Match.id == match_id).first()
     if db_match is None:
         raise HTTPException(status_code=404, detail="Match not found")
-
-    # Check if the team names have changed
-    if match.team_a != db_match.team_a:
-        db_team_a = crud.get_team(db, match.team_a)
-        if db_team_a is None:
-            raise HTTPException(status_code=404, detail="Team A not found")
     
-    if match.team_b != db_match.team_b:
-        db_team_b = crud.get_team(db, match.team_b)
-        if db_team_b is None:
-            raise HTTPException(status_code=404, detail="Team B not found")
+    # Log before updating the match
+    log_change("Updated", "Match", f"{db_match.team_a} vs {db_match.team_b}", f"Old Score: {db_match.goals_a}-{db_match.goals_b}")
 
     # Update the match details
     db_match.team_a = match.team_a
@@ -143,17 +142,25 @@ def update_match(match_id: int, match: schemas.MatchCreate, db: Session = Depend
     db.commit()
     db.refresh(db_match)
 
+    # Log after updating the match
+    log_change("Updated", "Match", f"{match.team_a} vs {match.team_b}", f"New Score: {match.goals_a}-{match.goals_b}")
+
     return db_match
 
 # Delete a match
-@app.delete("/matches/{match_id}")
-def delete_match(match_id: int, db: Session = Depends(get_db)):
-    db_match = db.query(models.Match).filter(models.Match.id == match_id).first()
-    if db_match is None:
-        raise HTTPException(status_code=404, detail="Match not found")
-    db.delete(db_match)
-    db.commit()
-    return {"message": f"Match {db_match.team_a} vs {db_match.team_b} deleted successfully"}
+# @app.delete("/matches/{match_id}")
+# def delete_match(match_id: int, db: Session = Depends(get_db)):
+#     db_match = db.query(models.Match).filter(models.Match.id == match_id).first()
+#     if db_match is None:
+#         raise HTTPException(status_code=404, detail="Match not found")
+    
+#     # Log the deletion before the match is deleted
+#     log_change("Deleted", "Match", f"{db_match.team_a} vs {db_match.team_b}", f"Score: {db_match.goals_a}-{db_match.goals_b}")
+    
+#     db.delete(db_match)
+#     db.commit()
+    
+    # return {"message": f"Match {db_match.team_a} vs {db_match.team_b} deleted successfully"}
 
 # Get rankings based on the criteria
 @app.get("/rankings/")
@@ -229,5 +236,7 @@ def get_rankings(db: Session = Depends(get_db)):
 # Clear all teams and matches from the database
 @app.delete("/clear/")
 def clear_data(db: Session = Depends(get_db)):
+    log_change("Cleared", "Championship", "", "Previous Championship Data Deleted. Starting New Championship!")
     crud.clear_all_data(db)
+    
     return {"message": "All data cleared"}

@@ -10,7 +10,7 @@ st.set_page_config(page_title="Football Championship", layout="centered")
 
 # Sidebar Navigation
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Scoreboard", "Add Teams", "Edit Teams", "Teams", "Add Matches", "Edit Matches", "Matches", "Clear All Data"])
+page = st.sidebar.radio("Go to", ["Scoreboard", "Add Teams", "Edit Teams", "Teams", "Add Matches", "Edit Matches", "Matches", "Data Change Log", "Clear All Data"])
 
 # Utility function to fetch rankings and teams data from backend
 def fetch_rankings():
@@ -185,12 +185,12 @@ elif page == "Edit Teams":
                     st.error(f"Failed to update Team: {selected_team}. {response.text}")
 
             # Delete team
-            if st.button("Delete Team", key=f"delete_{reload_key}"):
-                response = requests.delete(f"{API_URL}/teams/{selected_team}")
-                if response.status_code == 200:
-                    st.success(f"Deleted Team: {selected_team}")
-                else:
-                    st.error(f"Failed to delete Team: {selected_team}. {response.text}")
+            # if st.button("Delete Team", key=f"delete_{reload_key}"):
+            #     response = requests.delete(f"{API_URL}/teams/{selected_team}")
+            #     if response.status_code == 200:
+            #         st.success(f"Deleted Team: {selected_team}")
+            #     else:
+            #         st.error(f"Failed to delete Team: {selected_team}. {response.text}")
 
 
 # 6. View Matches Page (for viewing/searching matches)
@@ -250,6 +250,22 @@ elif page == "Edit Matches":
             st.warning("No match IDs available to select. Please ensure matches have been added.")
     else:
         st.warning("No matches available. Please add some matches first.")
+
+# Data Change Log Page
+elif page == "Data Change Log":
+    st.title("Data Change Log")
+    
+    # Display the contents of the log file
+    try:
+        with open("data_change_log.txt", "r") as f:
+            log_data = f.read()
+            if log_data:
+                st.text_area("Data Change Log", log_data, height=400)
+            else:
+                st.info("No data changes logged yet.")
+    except FileNotFoundError:
+        st.error("Log file not found.")
+
 
 # 8. Clear All Data Page
 elif page == "Clear All Data":

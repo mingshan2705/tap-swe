@@ -13,3 +13,8 @@ database.db
 # IDE files
 .vscode/
 .idea/
+
+# Ignore log files
+*.log
+data_change_log.txt
+logs/
