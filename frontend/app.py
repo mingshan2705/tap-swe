@@ -47,9 +47,9 @@ if main_page == "Scoreboard":
         if not df_group_1.empty:
             df_group_1 = df_group_1[["team_name", "match_points", "goals_scored", "alternate_points", "registration_date"]]
             df_group_1['qualified'] = df_group_1['team_name'].apply(lambda x: "✅" if x in top_4_group_1 else "")
-            st.table(df_group_1.style.set_table_styles([
+            st.dataframe(df_group_1.style.hide(axis="index").set_table_styles([
                 {'selector': 'thead th', 'props': [('font-weight', 'bold')]}
-            ]))
+            ]), hide_index=True)
 
         # Display Group 2 Rankings
         st.subheader("⚽ Group 2 Rankings")
@@ -57,9 +57,9 @@ if main_page == "Scoreboard":
         if not df_group_2.empty:
             df_group_2 = df_group_2[["team_name", "match_points", "goals_scored", "alternate_points", "registration_date"]]
             df_group_2['qualified'] = df_group_2['team_name'].apply(lambda x: "✅" if x in top_4_group_2 else "")
-            st.table(df_group_2.style.set_table_styles([
+            st.dataframe(df_group_2.style.hide(axis="index").set_table_styles([
                 {'selector': 'thead th', 'props': [('font-weight', 'bold')]}
-            ]))
+            ]), hide_index=True)
 
 
 # Teams Sub-menu
@@ -155,9 +155,9 @@ elif main_page == "Teams":
 
             # Display the teams table
             if not df_teams.empty:
-                st.table(df_teams.style.set_table_styles([
+                st.dataframe(df_teams.style.hide(axis="index").set_table_styles([
                     {'selector': 'thead th', 'props': [('font-weight', 'bold')]}
-                ]))
+                ]), hide_index=True)
 
 # Matches Sub-menu
 elif main_page == "Matches":
@@ -246,9 +246,9 @@ elif main_page == "Matches":
                 df_matches = df_matches[df_matches.apply(lambda row: search_term.lower() in row["team_a"].lower() or search_term.lower() in row["team_b"].lower(), axis=1)]
 
             if not df_matches.empty:
-                st.table(df_matches.style.set_table_styles([
+                st.dataframe(df_matches.style.hide(axis="index").set_table_styles([
                     {'selector': 'thead th', 'props': [('font-weight', 'bold')]}
-                ]))
+                ]), hide_index=True)
 
 # Data Change Log Page
 elif main_page == "Data Change Log":
