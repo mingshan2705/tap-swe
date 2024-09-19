@@ -121,6 +121,9 @@ def update_match(match_id: int, match: schemas.MatchCreate, db: Session = Depend
     if db_match is None:
         raise HTTPException(status_code=404, detail="Match not found")
     
+    if match.goals_a < 0 or match.goals_b < 0:
+        raise HTTPException(status_code=400, detail="Goals cannot be negative")
+    
     # Log before updating the match
     log_change("Updated", "Match", f"{db_match.team_a} vs {db_match.team_b}", f"Old Score: {db_match.goals_a}-{db_match.goals_b}")
 

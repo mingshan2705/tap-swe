@@ -225,27 +225,29 @@ elif main_page == "Matches":
                 st.text(f"Team B: {selected_match_data['team_b']}")
 
                 # Display fields for editing (ensure non-negative values)
-                new_goals_a = st.number_input("New Goals for Team A", min_value=0, value=selected_match_data["goals_a"])
-                new_goals_b = st.number_input("New Goals for Team B", min_value=0, value=selected_match_data["goals_b"])
+                new_goals_a = st.number_input("New Goals for Team A", value=selected_match_data["goals_a"])
+                new_goals_b = st.number_input("New Goals for Team B", value=selected_match_data["goals_b"])
 
-                # Update match
+                # Update match (only if values are valid and non-negative)
                 if st.button("Update Match"):
-                    update_data = {
-                        "team_a": selected_match_data["team_a"],
-                        "team_b": selected_match_data["team_b"],
-                        "goals_a": new_goals_a,
-                        "goals_b": new_goals_b
-                    }
-                    response = requests.put(f"{API_URL}/matches/{selected_match_id}", json=update_data)
-                    if response.status_code == 200:
-                        st.success(f"✅ Match Updated: {selected_match_data['team_a']} vs {selected_match_data['team_b']}")
+                    if new_goals_a < 0 or new_goals_b < 0:
+                        st.error("⚠ Goals must be non-negative. Please provide valid scores.")
                     else:
-                        st.error(f"❌ Failed to update Match: {response.json()['detail']}")
+                        update_data = {
+                            "team_a": selected_match_data["team_a"],
+                            "team_b": selected_match_data["team_b"],
+                            "goals_a": new_goals_a,
+                            "goals_b": new_goals_b
+                        }
+                        response = requests.put(f"{API_URL}/matches/{selected_match_id}", json=update_data)
+                        if response.status_code == 200:
+                            st.success(f"✅ Match Updated: {selected_match_data['team_a']} vs {selected_match_data['team_b']}")
+                        else:
+                            st.error(f"❌ Failed to update Match: {response.json()['detail']}")
             else:
                 st.warning("No match IDs available to select. Please ensure matches have been added.")
         else:
             st.warning("No matches available. Please add some matches first.")
-
 
     # View Matches Page
     elif match_option == "View Matches":
