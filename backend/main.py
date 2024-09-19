@@ -55,19 +55,25 @@ def update_team(team_name: str, team: schemas.TeamCreate, db: Session = Depends(
     if db_team is None:
         raise HTTPException(status_code=404, detail="Team not found")
     
-    old_group = db_team.group_number
     old_name = db_team.name
-    
+
+    # Update the team details
     db_team.name = team.name
     db_team.registration_date = team.registration_date
     db_team.group_number = team.group_number
     db.commit()
     db.refresh(db_team)
 
+    # Update team name in matches where it is referenced
+    db.query(models.Match).filter(models.Match.team_a == old_name).update({"team_a": team.name})
+    db.query(models.Match).filter(models.Match.team_b == old_name).update({"team_b": team.name})
+    db.commit()
+
     # Log the change
-    log_change("Updated", "Team", old_name, f"New Name: {team.name}, New Group: {team.group_number}, Old Group: {old_group}")
+    log_change("Updated", "Team", old_name, f"New Name: {team.name}, New Group: {team.group_number}")
 
     return db_team
+
 
 # Add a new match
 @app.post("/matches/", response_model=schemas.Match)
