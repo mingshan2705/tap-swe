@@ -89,6 +89,7 @@ reject if format is wrong.
 1. Reject match adding that involves 2 teams from different groups (No cross matches).
 1. Team should only be in group 1 or 2.
 1. Reject adding/editing teams into a group with has the maximum capacity of 6 teams.
+1. Reject negative scores.
 1. Existing matches cannot be added again. Changes to match scoring should be done in the 'Edit Match' page.
 1. Can view teams and matches after adding.
 1. Can view scoreboard with correct ranking.

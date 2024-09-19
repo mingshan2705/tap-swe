@@ -176,22 +176,35 @@ elif main_page == "Matches":
                 match_data = match.split()
                 if len(match_data) == 4:
                     team_a, team_b, goals_a, goals_b = match_data
-                    if team_a == team_b:
-                        st.error("⚠ Team A and Team B must be different.")
-                    else:
-                        data = {
-                            "team_a": team_a,
-                            "team_b": team_b,
-                            "goals_a": int(goals_a),
-                            "goals_b": int(goals_b)
-                        }
-                        response = requests.post(f"{API_URL}/matches/", json=data)
-                        if response.status_code == 200:
-                            st.success(f"✅ Match Added: {team_a} vs {team_b}")
+
+                    try:
+                        goals_a = int(goals_a)
+                        goals_b = int(goals_b)
+
+                        # Check if goals are valid (non-negative)
+                        if goals_a < 0 or goals_b < 0:
+                            st.error(f"⚠ Invalid input: Negative goals are not allowed.")
+                        elif team_a == team_b:
+                            st.error("⚠ Team A and Team B must be different.")
                         else:
-                            st.error(f"❌ Failed to add Match: {response.json()['detail']}")
+                            data = {
+                                "team_a": team_a,
+                                "team_b": team_b,
+                                "goals_a": goals_a,
+                                "goals_b": goals_b
+                            }
+                            # Send request to the backend
+                            response = requests.post(f"{API_URL}/matches/", json=data)
+                            if response.status_code == 200:
+                                st.success(f"✅ Match Added: {team_a} vs {team_b}")
+                            else:
+                                st.error(f"❌ Failed to add Match: {response.json()['detail']}")
+                    except ValueError:
+                        st.error(f"⚠ Invalid input: Goals must be integers. Please correct the input format for the match: {match}")
                 else:
-                    st.error(f"⚠ Invalid format for line: {match}")
+                    st.error(f"⚠ Invalid format for line: {match}. Correct format is: <Team A Name> <Team B Name> <Goals A> <Goals B>")
+
+
 
     # Edit Matches Page
     elif match_option == "Edit Matches":
@@ -211,7 +224,7 @@ elif main_page == "Matches":
                 st.text(f"Team A: {selected_match_data['team_a']}")
                 st.text(f"Team B: {selected_match_data['team_b']}")
 
-                # Display fields for editing
+                # Display fields for editing (ensure non-negative values)
                 new_goals_a = st.number_input("New Goals for Team A", min_value=0, value=selected_match_data["goals_a"])
                 new_goals_b = st.number_input("New Goals for Team B", min_value=0, value=selected_match_data["goals_b"])
 
@@ -232,6 +245,7 @@ elif main_page == "Matches":
                 st.warning("No match IDs available to select. Please ensure matches have been added.")
         else:
             st.warning("No matches available. Please add some matches first.")
+
 
     # View Matches Page
     elif match_option == "View Matches":
