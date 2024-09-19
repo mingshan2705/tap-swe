@@ -48,8 +48,6 @@ def add_team(team: schemas.TeamCreate, db: Session = Depends(get_db)):
     return created_team
 
 
-
-
 # Update a team's details
 @app.put("/teams/{team_name}", response_model=schemas.Team)
 def update_team(team_name: str, team: schemas.TeamCreate, db: Session = Depends(get_db)):
@@ -70,20 +68,6 @@ def update_team(team_name: str, team: schemas.TeamCreate, db: Session = Depends(
     log_change("Updated", "Team", old_name, f"New Name: {team.name}, New Group: {team.group_number}, Old Group: {old_group}")
 
     return db_team
-
-# Delete a team
-# def delete_team(team_name: str, db: Session = Depends(get_db)):
-#     db_team = crud.get_team(db, team_name)
-#     if db_team is None:
-#         raise HTTPException(status_code=404, detail="Team not found")
-    
-#     db.delete(db_team)
-#     db.commit()
-
-#     # Log the deletion
-#     log_change("Deleted", "Team", team_name, f"Group {db_team.group_number}")
-
-#     return {"message": f"Team {team_name} deleted successfully"}
 
 # Add a new match
 @app.post("/matches/", response_model=schemas.Match)
@@ -147,25 +131,11 @@ def update_match(match_id: int, match: schemas.MatchCreate, db: Session = Depend
 
     return db_match
 
-# Delete a match
-# @app.delete("/matches/{match_id}")
-# def delete_match(match_id: int, db: Session = Depends(get_db)):
-#     db_match = db.query(models.Match).filter(models.Match.id == match_id).first()
-#     if db_match is None:
-#         raise HTTPException(status_code=404, detail="Match not found")
-    
-#     # Log the deletion before the match is deleted
-#     log_change("Deleted", "Match", f"{db_match.team_a} vs {db_match.team_b}", f"Score: {db_match.goals_a}-{db_match.goals_b}")
-    
-#     db.delete(db_match)
-#     db.commit()
-    
-    # return {"message": f"Match {db_match.team_a} vs {db_match.team_b} deleted successfully"}
-
-# Get rankings based on the criteria
+# Get rankings and top 4 teams
 @app.get("/rankings/")
 def get_rankings(db: Session = Depends(get_db)):
-    teams = crud.get_teams_by_group(db, 1) + crud.get_teams_by_group(db, 2)
+    teams_group_1 = crud.get_teams_by_group(db, 1)
+    teams_group_2 = crud.get_teams_by_group(db, 2)
     matches = crud.get_all_matches(db)
 
     # Initialize ranking dictionary for each team
@@ -173,9 +143,9 @@ def get_rankings(db: Session = Depends(get_db)):
         "match_points": 0,
         "goals_scored": 0,
         "alternate_points": 0,
-        "registration_date": team.registration_date,  # Keeping it as a string
+        "registration_date": datetime.strptime(team.registration_date, "%d/%m"),  # Convert to datetime for comparison
         "group_number": team.group_number
-    } for team in teams}
+    } for team in teams_group_1 + teams_group_2}
 
     # Calculate match points, goals, and alternate points
     for match in matches:
@@ -197,13 +167,24 @@ def get_rankings(db: Session = Depends(get_db)):
         rankings[match.team_a]["goals_scored"] += match.goals_a
         rankings[match.team_b]["goals_scored"] += match.goals_b
 
-    # Sort teams based on ranking criteria
-    sorted_teams = sorted(teams, key=lambda team: (
-        rankings[team.name]["match_points"],
-        rankings[team.name]["goals_scored"],
-        rankings[team.name]["alternate_points"],
+    # Sort teams based on ranking criteria, with registration date as the last tiebreaker
+    sorted_teams_group_1 = sorted(teams_group_1, key=lambda team: (
+        -rankings[team.name]["match_points"],
+        -rankings[team.name]["goals_scored"],
+        -rankings[team.name]["alternate_points"],
         rankings[team.name]["registration_date"]
-    ), reverse=True)
+    ))
+
+    sorted_teams_group_2 = sorted(teams_group_2, key=lambda team: (
+        -rankings[team.name]["match_points"],
+        -rankings[team.name]["goals_scored"],
+        -rankings[team.name]["alternate_points"],
+        rankings[team.name]["registration_date"]
+    ))
+
+    # Get top 4 teams for each group based on correct tiebreaker
+    top_4_group_1 = sorted_teams_group_1[:4]
+    top_4_group_2 = sorted_teams_group_2[:4]
 
     # Format team rankings
     team_rankings = [
@@ -212,13 +193,13 @@ def get_rankings(db: Session = Depends(get_db)):
             "match_points": rankings[team.name]["match_points"],
             "goals_scored": rankings[team.name]["goals_scored"],
             "alternate_points": rankings[team.name]["alternate_points"],
-            "registration_date": team.registration_date,
+            "registration_date": team.registration_date,  # Keep as string for display
             "group_number": team.group_number
         }
-        for team in sorted_teams
+        for team in sorted_teams_group_1 + sorted_teams_group_2
     ]
 
-    # Return rankings and matches
+    # Return rankings and matches, and send top 4 teams for both groups
     return {
         "rankings": team_rankings,
         "matches": [
@@ -230,7 +211,9 @@ def get_rankings(db: Session = Depends(get_db)):
                 "goals_b": match.goals_b
             }
             for match in matches
-        ]
+        ],
+        "top_4_group_1": [{"team_name": team.name} for team in top_4_group_1],
+        "top_4_group_2": [{"team_name": team.name} for team in top_4_group_2]
     }
 
 # Clear all teams and matches from the database

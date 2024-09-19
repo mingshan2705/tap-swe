@@ -38,11 +38,15 @@ if main_page == "Scoreboard":
         group_1 = [team for team in rankings_data["rankings"] if team.get("group_number", 0) == 1]
         group_2 = [team for team in rankings_data["rankings"] if team.get("group_number", 0) == 2]
 
+        top_4_group_1 = [team["team_name"] for team in rankings_data.get("top_4_group_1", [])]
+        top_4_group_2 = [team["team_name"] for team in rankings_data.get("top_4_group_2", [])]
+
         # Display Group 1 Rankings
         st.subheader("⚽ Group 1 Rankings")
         df_group_1 = pd.DataFrame(group_1)
         if not df_group_1.empty:
             df_group_1 = df_group_1[["team_name", "match_points", "goals_scored", "alternate_points", "registration_date"]]
+            df_group_1['qualified'] = df_group_1['team_name'].apply(lambda x: "✅" if x in top_4_group_1 else "")
             st.table(df_group_1.style.set_table_styles([
                 {'selector': 'thead th', 'props': [('font-weight', 'bold')]}
             ]))
@@ -52,9 +56,11 @@ if main_page == "Scoreboard":
         df_group_2 = pd.DataFrame(group_2)
         if not df_group_2.empty:
             df_group_2 = df_group_2[["team_name", "match_points", "goals_scored", "alternate_points", "registration_date"]]
+            df_group_2['qualified'] = df_group_2['team_name'].apply(lambda x: "✅" if x in top_4_group_2 else "")
             st.table(df_group_2.style.set_table_styles([
                 {'selector': 'thead th', 'props': [('font-weight', 'bold')]}
             ]))
+
 
 # Teams Sub-menu
 elif main_page == "Teams":
